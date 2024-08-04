@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kda
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kda
+  namespace: kda
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: token-creation
+  namespace: kda
+rules:
+  - apiGroups: [""]
+    resources: ["serviceaccounts/token"]
+    verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: read-cluster
+subjects:
+  - kind: ServiceAccount
+    name: dashboard-user
+    namespace: kda
+roleRef:
+  kind: ClusterRole
+  name: view
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dashboard-user
+  namespace: kda
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: htpasswd
+  namespace: kda
+stringData:
+  htpasswd: |
+    demo:$2y$10$X1/dn.vNo6/LXDc12yiSluS4WMYEArVDUOj6pjF7I2USAguCnWcki
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kda
+  namespace: kda
+spec:
+  selector:
+    matchLabels:
+      app: kda
+  template:
+    metadata:
+      labels:
+        app: kda
+    spec:
+      serviceAccountName: kda
+      containers:
+        - name: kda
+          image: kda:latest
+          imagePullPolicy: Never
+          args:
+            - --backend
+            - "https://kubernetes-dashboard-kong-proxy.kubernetes-dashboard.svc.cluster.local"
+            - --address
+            - ":8080"
+            - --namespace
+            - "kda"
+            - --serviceAccount
+            - "dashboard-user"
+            - --htpasswd
+            - "/etc/kda/htpasswd"
+          volumeMounts:
+            - mountPath: /etc/kda
+              name: htpasswd
+          ports:
+            - containerPort: 8080
+              name: http
+      volumes:
+        - name: htpasswd
+          secret:
+            secretName: htpasswd

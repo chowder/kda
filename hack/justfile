@@ -1,0 +1,17 @@
+setup:
+    kind create cluster
+    kind export kubeconfig
+
+install-k8s-dashboard:
+    # https://get.helm.sh/helm-v3.15.3-linux-amd64.tar.gz
+    helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+    helm upgrade --install \
+        kubernetes-dashboard \
+        kubernetes-dashboard/kubernetes-dashboard \
+        --create-namespace \
+        --namespace kubernetes-dashboard
+
+install-kda:
+    cd .. && docker build . -t kda:latest
+    kind load docker-image kda:latest
+    kubectl apply -f resources.yaml
